@@ -1,0 +1,5 @@
+module TrainingIO
+
+greet() = print("Hello World!")
+
+end # module TrainingIO
