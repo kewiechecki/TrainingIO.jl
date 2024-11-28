@@ -10,16 +10,34 @@ include("savedate.jl")
 include("writemodel.jl")
 include("readmodel.jl")
 
+@doc raw"""
+`update!(M, loss, opt::Flux.Optimiser) -> typeof(loss(M,x,y))`
+`update!(M, x, y, loss, opt::Flux.Optimiser) -> typeof(loss(M,x,y))`
+
+Updates the parameters of `M` using `Flux.update!`.
+
+If `x` and `y` are provided, `loss` is interpreted as a trinary function
+
+`loss::((typeof(x) -> typeof(y)) -> typeof(x) -> typeof(y) -> Float`.
+
+Otherwise, `loss` is interpreted as a unary function to be passed to `Flux.withgradient`.
+
+This is a lower-level function for defining training loops. For a plug-and-play training loop, use `train!` 
+
+See also: `train!`, Optimisers.update!`, `Optimisers.setup`, `Flux.withgradient`.
+"""
+#If x,y are specified, use them to construct a curried loss function.
 function update!(M,x,y,
                  loss::Function,
                  opt::Flux.Optimiser)
     #x = gpu(x)
     #y = gpu(y)
     f = m->loss(m(x),y)
-    state = Flux.setup(opt,M)
-    l,∇ = Flux.withgradient(f,M)
-    Flux.update!(state,M,∇[1])
-    return l
+    update!(M,f,opt)
+    #state = Flux.setup(opt,M)
+    #l,∇ = Flux.withgradient(f,M)
+    #Flux.update!(state,M,∇[1])
+    #return l
 end
 
 function update!(M,
@@ -32,6 +50,25 @@ function update!(M,
     return l
 end
 
+@doc raw"""
+`train!(M,path,
+        loss::Function,
+        loader::Flux.DataLoader,
+        opt::Flux.Optimiser,
+        epochs::Integer; ignoreY=true, savecheckpts=true) -> Matrix`
+
+Trains a model `M` using data in `loader`, cycling through `loader` `epochs` times. Saves the final result to `path*"/final.jld2`. Loss for each update step is saved in `path*"/loss.csv"`. Returns a `Matrix` with the results of `loss` for each epoch.
+
+This is a high level function intended to streamline I/O. If a custom training loop is desired, use `update!`.
+
+If `loss` returns multiple arguments: only the first is used for optimisation, but all will be written to `loss.csv`.
+
+If `savecheckpts`, a copy of the model is saved after each epoch.
+
+`loss` should accept a model, model input, and expected model output. Standard loss functions such as `Flux.mse` should be wrapped as `(M,x,y)->Flux.mse(M(x),y)`. This can be accomplished with `Autoencoders.loss`.
+
+See also: `Autoencoders.loss` `update!`, `Optimisers.update!`, `Flux.trainmodel!`
+"""
 function train!(M,
                 loader::Flux.DataLoader,
                 opt::Flux.Optimiser,
@@ -97,6 +134,9 @@ function train!(M,path::String,
         map(loader) do (x,y)
             x = gpu(x)
             y = gpu(y)
+            if ignoreY
+                y = x
+            end
             f = m->loss(m,x,y)
             l = update!(M,f,opt)
             push!(log,[l...]')
