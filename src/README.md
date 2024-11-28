@@ -5,6 +5,7 @@ Convenience functions for reading/writing Flux models and recording loss during 
 ## Installation
 
 ```{julia}
+] add https://github.com/kewiechecki/DictMap.jl
 ] add https://github.com/kewiechecki/TrainingIO.jl
 ```
 
