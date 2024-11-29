@@ -2,9 +2,9 @@ module TrainingIO
 export update!,train!,load!,writecsv,savemodel,loadmodel,readloss
 export date,savepath,savedate
 
-using Flux,ProgressMeter, JLD2,Tables,CSV,DataFrames
+@reexport using Flux,ProgressMeter, JLD2,Tables,CSV,DataFrames
 using Dates,Plots
-using DictMap
+@reexport using DictMap
 
 include("savedate.jl")
 include("writemodel.jl")
@@ -12,6 +12,7 @@ include("readmodel.jl")
 
 @doc raw"""
 `update!(M, loss, opt::Flux.Optimiser) -> typeof(loss(M,x,y))`
+
 `update!(M, x, y, loss, opt::Flux.Optimiser) -> typeof(loss(M,x,y))`
 
 Updates the parameters of `M` using `Flux.update!`.
@@ -26,10 +27,11 @@ This is a lower-level function for defining training loops. For a plug-and-play 
 
 See also: `train!`, Optimisers.update!`, `Optimisers.setup`, `Flux.withgradient`.
 """
-#If x,y are specified, use them to construct a curried loss function.
 function update!(M,x,y,
-                 loss::Function,
+                 loss,
                  opt::Flux.Optimiser)
+    #If x,y are specified, use them to construct a curried loss function.
+
     #x = gpu(x)
     #y = gpu(y)
     f = m->loss(m(x),y)
@@ -41,7 +43,7 @@ function update!(M,x,y,
 end
 
 function update!(M,
-                 loss::Function,
+                 loss,
                  opt::Flux.Optimiser)
     state = Flux.setup(opt,M)
     l,∇ = Flux.withgradient(loss,M)
@@ -52,7 +54,7 @@ end
 
 @doc raw"""
 `train!(M,path,
-        loss::Function,
+        loss,
         loader::Flux.DataLoader,
         opt::Flux.Optimiser,
         epochs::Integer; ignoreY=true, savecheckpts=true) -> Matrix`
@@ -73,7 +75,7 @@ function train!(M,
                 loader::Flux.DataLoader,
                 opt::Flux.Optimiser,
                 epochs::Integer,
-                loss::Function,
+                loss,
                 log;
                 prefn = identity,
                 postfn=identity,
@@ -112,7 +114,7 @@ function train!(M,
                 loader::Flux.DataLoader,
                 opt::Flux.Optimiser,
                 epochs::Integer,
-                loss::Function;
+                loss;
                 kwargs...)
     log = []
     train!(M,loader,opt,epochs,loss,log;kwargs...)
@@ -120,7 +122,7 @@ function train!(M,
 end
 
 function train!(M,path::String,
-                loss::Function,
+                loss,
                 loader::Flux.DataLoader,
                 opt::Flux.Optimiser,
                 epochs::Integer;
