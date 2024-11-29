@@ -1,10 +1,12 @@
 module TrainingIO
+
+using Reexport
+@reexport using Flux, ProgressMeter, JLD2, CSV, DataFrames
+using Dates, Plots, Tables
+@reexport using DictMap
+
 export update!,train!,load!,writecsv,savemodel,loadmodel,readloss
 export date,savepath,savedate
-
-@reexport using Flux,ProgressMeter, JLD2,Tables,CSV,DataFrames
-using Dates,Plots
-@reexport using DictMap
 
 include("savedate.jl")
 include("writemodel.jl")
