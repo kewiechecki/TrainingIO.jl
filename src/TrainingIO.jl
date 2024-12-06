@@ -5,7 +5,15 @@ using Reexport
 using Dates, Plots, Tables
 @reexport using DictMap
 
-export update!,train!,load!,writecsv,savemodel,loadmodel,readloss
+using MLDatasets, OneHotArrays
+using StatsBase, InvertedIndices
+
+export zeroabl,meanabl
+export sampledat,scaledat,unhot
+export mnistenc, mnistdec, mnistclassifier, mnistloader
+
+export update!,train!,load!,savemodel,loadmodel,readloss
+export writecsv, readcsv, readmat
 export date,savepath,savedate
 
 include("savedate.jl")
@@ -158,5 +166,9 @@ function train!(M,path::String,
     end
     return log
 end
+
+include("ablations.jl")
+include("preprocessing.jl")
+include("mnist.jl")
 
 end # module TrainingIO

@@ -4,7 +4,7 @@ function loadmodel(path::AbstractString,file="final.jld2")
     return M
 end
 
-function readloss(path::AbstractString,file="loss.csv")
+function readloss(path::AbstractString,file="loss.csv")::DataFrame
     return (DataFrame ∘ CSV.File)(path*"/"*file)
 end
 
@@ -21,3 +21,10 @@ function load!(f::Function,path::AbstractString,file="final.jld2")
     return load!(M,path)
 end
 
+function readcsv(file)::DataFrame
+    CSV.File(file) |> DataFrame
+end
+
+function readmat(file)::Matrix
+    readcsv(file) |> Matrix
+end

@@ -2,18 +2,17 @@ function writecsv(log::AbstractArray,path::AbstractString)
     Tables.table(log) |> CSV.write(path)
 end
 
-function writecsv(log::AbstractArray,path::AbstractString,file::AbstractString)
-    mkpath(path)
-    Tables.table(log) |> CSV.write(path*"/"*file)
-end
+#function writecsv(log::AbstractArray,path::AbstractString,file::AbstractString)
+#    mkpath(path)
+#    Tables.table(log) |> CSV.write(path*"/"*file)
+#end
 
-function writecsv(log::DataFrame,path::AbstractString,file::AbstractString)
+function writecsv(log::Union{DataFrame,AbstractArray},path::AbstractString,file::AbstractString)
     mkpath(path)
-    log |> CSV.write(path*"/"*file)
+    writecsv(log,path*"/"*file)
 end
 
 function writecsv(log::DataFrame,path::AbstractString)
-    mkpath(path)
     log |> CSV.write(path)
 end
 
