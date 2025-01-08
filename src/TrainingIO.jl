@@ -39,7 +39,7 @@ See also: `train!`, Optimisers.update!`, `Optimisers.setup`, `Flux.withgradient`
 """
 function update!(M,x,y,
                  loss,
-                 opt::Flux.Optimiser)
+                 opt) #Flux.Optimiser removed as type in Flux 16.0
     #If x,y are specified, use them to construct a curried loss function.
 
     #x = gpu(x)
@@ -54,7 +54,7 @@ end
 
 function update!(M,
                  loss,
-                 opt::Flux.Optimiser)
+                 opt)
     state = Flux.setup(opt,M)
     l,∇ = Flux.withgradient(loss,M)
     #(print∘sum)(∇[1].weight)
@@ -83,7 +83,7 @@ See also: `Autoencoders.loss` `update!`, `Optimisers.update!`, `Flux.trainmodel!
 """
 function train!(M,
                 loader::Flux.DataLoader,
-                opt::Flux.Optimiser,
+                opt,
                 epochs::Integer,
                 loss,
                 log;
@@ -122,7 +122,7 @@ end
 
 function train!(M,
                 loader::Flux.DataLoader,
-                opt::Flux.Optimiser,
+                opt,
                 epochs::Integer,
                 loss;
                 kwargs...)
@@ -134,7 +134,7 @@ end
 function train!(M,path::String,
                 loss,
                 loader::Flux.DataLoader,
-                opt::Flux.Optimiser,
+                opt,
                 epochs::Integer;
                 ignoreY=false,
                 savecheckpts=true)
