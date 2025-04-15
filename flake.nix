@@ -13,23 +13,19 @@
       flake = true;
     };
   };
-    TrainingIO = {
-      url = "github:kewiechecki/TrainingIO.jl";
-      flake = false;
-    };
 
-  outputs = { self, nixpkgs, flake-utils }:
+  outputs = { self, nixpkgs, flake-utils , DictMap }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = import nixpkgs { 
           inherit system;
           config.allowUnfree = true;
-          # config.cudaSupport = system == "x86_64-linux";
+          config.cudaSupport = system == "x86_64-linux";
 		};
 
         # Get library paths from the stdenv compiler and from gfortran.
-        # gccPath = toString pkgs.stdenv.cc.cc.lib;
-        # gfortranPath = toString pkgs.gfortran;
+        gccPath = toString pkgs.stdenv.cc.cc.lib;
+        gfortranPath = toString pkgs.gfortran;
 
         # Define the multi-line Julia script.
         # NOTE: The closing delimiter (two single quotes) MUST be flush with the left margin.
@@ -37,9 +33,10 @@
 using Pkg
 Pkg.instantiate()
 
+Pkg.add("cuDNN")
+Pkg.add("StructArrays")
+
 for (pkg, path) in [
-    ("REPLVim", "__REPLVim__"),
-    ("TrainingIO", "__TRAININGIO__"),
     ("DictMap", "__DICTMAP__"),
 ]
     try
@@ -49,7 +46,7 @@ for (pkg, path) in [
         println("Developing package ", pkg, " from ", path)
         try
             Pkg.develop(path=path)
-            Pkg.precompile(only=[pkg])
+            #Pkg.precompile(only=[pkg])
         catch e
             println("Error precompiling ", pkg, ": ", e)
             #exit(1)
@@ -57,6 +54,7 @@ for (pkg, path) in [
     end
 end
 
+Pkg.update()
 using TrainingIO
 '';
 
@@ -76,17 +74,27 @@ using TrainingIO
           buildInputs = [ 
 		    julia 
 			git
+			stdenv.cc
+			gfortran
 		  ];
           shellHook = ''
 source ${git}/share/bash-completion/completions/git-prompt.sh
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${gfortranPath}/lib:${gccPath}/lib:${gccPath}/lib64
+echo $LD_LIBRARY_PATH
 
 cat > julia_deps.jl <<'EOF'
 ${juliaScript}
 EOF
 
+# Replace placeholders with actual paths.
+sed -i 's|__DICTMAP__|${toString DictMap}|g' julia_deps.jl
+
+# Replace the dollar placeholder with a literal dollar sign.
+sed -i 's|__DOLLAR_PLACEHOLDER__|\\$|g' julia_deps.jl
+
 # Activate the project and instantiate dependencies.
 julia --project=. julia_deps.jl
-          '';
+'';
         };
       }
     );
