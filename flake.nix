@@ -11,92 +11,73 @@
     DictMap = {
       url = "github:kewiechecki/DictMap.jl";
       flake = true;
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
   outputs = { self, nixpkgs, flake-utils , DictMap }:
     flake-utils.lib.eachDefaultSystem (system:
       let
-        pkgs = import nixpkgs { 
+        pkgs = import nixpkgs {
           inherit system;
-          config.allowUnfree = true;
-          config.cudaSupport = system == "x86_64-linux";
-		};
-
-        # Get library paths from the stdenv compiler and from gfortran.
-        gccPath = toString pkgs.stdenv.cc.cc.lib;
-        gfortranPath = toString pkgs.gfortran;
-
-        # Define the multi-line Julia script.
-        # NOTE: The closing delimiter (two single quotes) MUST be flush with the left margin.
-        juliaScript = ''
-using Pkg
-Pkg.instantiate()
-
-Pkg.add("cuDNN")
-Pkg.add("StructArrays")
-
-for (pkg, path) in [
-    ("DictMap", "__DICTMAP__"),
-]
-    try
-        @eval import __DOLLAR_PLACEHOLDER__(Symbol(pkg))
-        println("Package ", pkg, " is already installed.")
-    catch e
-        println("Developing package ", pkg, " from ", path)
-        try
-            Pkg.develop(path=path)
-            #Pkg.precompile(only=[pkg])
-        catch e
-            println("Error precompiling ", pkg, ": ", e)
-            #exit(1)
-        end
-    end
-end
-
-Pkg.update()
-using TrainingIO
-'';
-
-		
-      in {
-        # A derivation for your package.
-        packages.autoencoders = pkgs.stdenv.mkDerivation {
-          name = "TrainingIO.jl";
-          src = ./.;
-          # If your package is purely interpreted, no build phase is needed.
-          # You can extend this if you have precompilation or other build steps.
+          config = {
+            allowUnfree = true;
+            cudaSupport = system == "x86_64-linux";
+          };
         };
 
-        # A development shell that provides Julia with your package instantiated.
-        devShell = with pkgs; mkShell {
+        juliaPkgs = pkgs.juliaPackages;
+        shellPkgsNested = with pkgs; [ # Keep shell packages definition separate
+          julia git stdenv.cc gfortran stdenv.cc.cc.lib
+          (lib.optional stdenv.isLinux cudaPackages.cudatoolkit)
+          (lib.optional stdenv.isLinux cudaPackages.cudnn)
+        ];
+
+        # --- Get the actual DictMap Nix package derivation ---
+        # Assumes the DictMap flake exports packages.default correctly
+        dictMapPkg = DictMap.packages.${system}.default;
+        shellPkgs = pkgs.lib.flatten shellPkgsNested;
+
+        # Build TrainingIO.jl
+		/*
+        trainingIObuilt = juliaPkgs.buildJuliaPackage {
+          pname = "TrainingIO";
+          version = "0.1.1"; # TODO: FIX THIS
+          src = ./.;
+
+          # Propagate runtime libs (gfortran) AND the dependency package (dictMapPkg)
+          # This signals that users/builders of TrainingIO need these.
+          # The Nix Julia hooks MIGHT use this to make dictMapPkg available
+          # to the Julia build environment for TrainingIO.
+          propagatedBuildInputs = [
+            pkgs.gfortran
+            dictMapPkg  # <<< Pass the actual package derivation here
+          ];
+        };
+		  */
+
+      in {
+        #packages.trainingIO = trainingIObuilt;
+        #packages.default = self.packages.${system}.trainingIO;
+
+        devShell = pkgs.mkShell { # Use pkgs. explicitly
           name = "trainingio-dev-shell";
-          buildInputs = [ 
-		    julia 
-			git
-			stdenv.cc
-			gfortran
-		  ];
+          # buildInputs only needs the runtime stuff for the shell itself
+          buildInputs = shellPkgs;
+
           shellHook = ''
-source ${git}/share/bash-completion/completions/git-prompt.sh
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:${gfortranPath}/lib:${gccPath}/lib:${gccPath}/lib64
-echo $LD_LIBRARY_PATH
+            source ${pkgs.git}/share/bash-completion/completions/git-prompt.sh
+            export JULIA_PROJECT="@."
+            export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath shellPkgs}";
 
-cat > julia_deps.jl <<'EOF'
-${juliaScript}
-EOF
-
-# Replace placeholders with actual paths.
-sed -i 's|__DICTMAP__|${toString DictMap}|g' julia_deps.jl
-
-# Replace the dollar placeholder with a literal dollar sign.
-sed -i 's|__DOLLAR_PLACEHOLDER__|\\$|g' julia_deps.jl
-
-# Activate the project and instantiate dependencies.
-julia --project=. julia_deps.jl
-'';
+            echo "Nix dev shell for TrainingIO.jl activated." # Corrected package name
+            echo "Julia environment uses Project.toml (JULIA_PROJECT=@.)."
+            # Debug check
+            echo "--- Checking LD_LIBRARY_PATH ($LD_LIBRARY_PATH) for libquadmath.so.0 ---"
+            ( IFS=: ; for p in $LD_LIBRARY_PATH; do if [ -f "$p/libquadmath.so.0" ]; then echo "  FOUND in $p"; fi; done )
+            echo "----------------------------------------------------"
+          '';
         };
       }
     );
 }
-
